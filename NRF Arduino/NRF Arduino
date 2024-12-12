@@ -1,0 +1,78 @@
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+
+// NRF24 module pins
+#define CE_PIN 9
+#define CSN_PIN 10
+
+// Create RF24 object
+RF24 radio(CE_PIN, CSN_PIN);
+
+// Define pipe address (must be the same on both transmitter and receiver)
+const byte address[6] = "00001";
+
+// Define a structure to handle NRF24 communication
+struct NRF24Handler {
+    void begin() {
+        radio.begin();
+        radio.setChannel(108); // Set the RF channel (0-125)
+        radio.setPALevel(RF24_PA_LOW); // Set Power Amplifier level
+        radio.openWritingPipe(address); // Set the write pipe address
+        radio.openReadingPipe(1, address); // Set the read pipe address
+        radio.startListening(); // Start in listening mode
+    }
+
+    void transmit(char data) {
+        radio.stopListening(); // Stop listening to send data
+        bool success = radio.write(&data, sizeof(data));
+        if (success) {
+            Serial.println("Transmission successful");
+        } else {
+            Serial.println("Transmission failed");
+        }
+        radio.startListening(); // Resume listening
+    }
+
+    char receive() {
+        if (radio.available()) {
+            char receivedData;
+            radio.read(&receivedData, sizeof(receivedData));
+            return receivedData;
+        }
+        return '\0'; // Return null character if no data is available
+    }
+};
+
+NRF24Handler nrf24;
+
+void setup() {
+    // Initialize serial communication for debugging
+    Serial.begin(115200);
+    while (!Serial);
+
+    // Initialize NRF24 module
+    nrf24.begin();
+
+    Serial.println("NRF24 Module Test");
+}
+
+void loop() {
+    // Transmit a character
+    char sendChar = 'A';
+    nrf24.transmit(sendChar);
+    Serial.print("Sent: ");
+    Serial.println(sendChar);
+
+    // Wait for a response
+    delay(500);
+    char response = nrf24.receive();
+    if (response != '\0') {
+        Serial.print("Received: ");
+        Serial.println(response);
+    } else {
+        Serial.println("No response received");
+    }
+
+    delay(1000); // Add a small delay before the next cycle
+}
